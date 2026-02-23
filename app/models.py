@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
@@ -23,3 +23,26 @@ class User(db.Model, UserMixin):
 
     def __repr__(self):
         return f"<User {self.username}>"
+
+
+class Transaction(db.Model):
+    """
+    Lançamento financeiro simples:
+    - type: 'OUT' (gasto) ou 'IN' (entrada)
+    - amount: valor positivo
+    - category: texto livre por enquanto (depois virará tabela)
+    - happened_on: data do lançamento
+    """
+    __tablename__ = "transactions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(3), nullable=False, default="OUT")  # OUT / IN
+    amount = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    category = db.Column(db.String(80), nullable=False, default="Geral")
+    note = db.Column(db.String(255), nullable=True)
+
+    happened_on = db.Column(db.Date, nullable=False, default=date.today)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<Transaction {self.type} {self.amount} {self.category} {self.happened_on}>"
