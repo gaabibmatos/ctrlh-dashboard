@@ -1,42 +1,49 @@
 import os
-import pathlib
-import datetime as dt
+from datetime import datetime
 
-def build_db_uri() -> str:
-    # If DATABASE_URL is set (Render Postgres), use it.
-    # Otherwise, default to local SQLite in instance/ctrlh.db
+
+# ===============================
+# DATABASE URI (Render + Local)
+# ===============================
+def build_db_uri():
     url = os.getenv("DATABASE_URL", "").strip()
-    if url:
-        # Render often provides postgres:// - SQLAlchemy expects postgresql://
-        if url.startswith("postgres://"):
-            url = "postgresql://" + url[len("postgres://"):]
-        return url
 
-    instance_path = pathlib.Path(__file__).resolve().parent.parent / "instance"
-    instance_path.mkdir(parents=True, exist_ok=True)
-    db_path = instance_path / "ctrlh.db"
-    return f"sqlite:///{db_path.as_posix()}"
+    # Se não existir DATABASE_URL → usa SQLite local
+    if not url:
+        return "sqlite:///instance/ctrlh.db"
 
-def brl(value) -> str:
+    # Render às vezes fornece postgres:// (formato antigo)
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+
+    # Força uso do driver psycopg3 (evita psycopg2)
+    if url.startswith("postgresql://") and "+psycopg" not in url:
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    return url
+
+
+# ===============================
+# FORMATADORES PARA JINJA
+# ===============================
+def brl(value):
+    """Formata número como moeda brasileira."""
     try:
-        v = float(value or 0)
+        return f"R$ {float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except Exception:
-        v = 0.0
-    # Format simple pt-BR style (sem depender de locale do SO)
-    s = f"{v:,.2f}"
-    s = s.replace(",", "X").replace(".", ",").replace("X", ".")
-    return f"R$ {s}"
+        return "R$ 0,00"
 
-def ym_now():
-    today = dt.date.today()
-    return today.year, today.month
 
-def ym_label(year:int, month:int) -> str:
-    months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
-    return f"{months[month-1]}/{year}"
+def ym_label(year, month):
+    """Formata Ano/Mês"""
+    try:
+        return f"{month:02d}/{year}"
+    except Exception:
+        return ""
 
-def week_label(date: dt.date) -> str:
-    # Monday..Sunday range label
-    monday = date - dt.timedelta(days=date.weekday())
-    sunday = monday + dt.timedelta(days=6)
-    return f"{monday.strftime('%d/%m')} a {sunday.strftime('%d/%m')}"
+
+def week_label(date_obj):
+    """Formata semana"""
+    if isinstance(date_obj, datetime):
+        return f"Semana {date_obj.isocalendar()[1]}"
+    return ""
