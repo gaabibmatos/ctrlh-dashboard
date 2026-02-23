@@ -1,130 +1,134 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <div>
-    <h3 class="mb-0">Financeiro</h3>
-    <div class="text-muted small">Mês: {{ ym_label(year, month) }}</div>
-  </div>
-</div>
-
-<div class="row g-3">
-  <div class="col-12 col-xl-6">
-    <div class="card shadow-sm">
-      <div class="card-header fw-semibold">Status de Liquidação</div>
-      <div class="card-body">
-        <form class="row g-2 mb-3" method="post" action="{{ url_for('finance.add_bill') }}">
-          <div class="col-12 col-md-6">
-            <input class="form-control" name="description" placeholder="Conta (ex: Aluguel)" required>
-          </div>
-          <div class="col-6 col-md-3">
-            <input class="form-control" name="amount" type="number" step="0.01" placeholder="Valor" required>
-          </div>
-          <div class="col-6 col-md-3">
-            <input class="form-control" name="due_date" type="date" placeholder="Vencimento">
-          </div>
-          <div class="col-12">
-            <button class="btn btn-dark btn-sm">Adicionar</button>
-          </div>
-        </form>
-
-        {% if bills %}
-          {% for b in bills %}
-            <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
-              <div class="text-truncate">
-                <span class="badge text-bg-{{ 'success' if b.paid else 'warning' }}">{{ 'PAGO' if b.paid else 'PENDENTE' }}</span>
-                <span class="ms-2">{{ b.description }}</span>
-                {% if b.due_date %}<span class="text-muted small ms-2">(venc. {{ b.due_date.strftime('%d/%m') }})</span>{% endif %}
-              </div>
-              <div class="d-flex align-items-center gap-2">
-                <div class="fw-semibold">{{ brl(b.amount) }}</div>
-                <form method="post" action="{{ url_for('finance.toggle_bill', bill_id=b.id) }}">
-                  <button class="btn btn-sm btn-outline-secondary">{{ 'Desmarcar' if b.paid else 'Marcar pago' }}</button>
-                </form>
-              </div>
-            </div>
-          {% endfor %}
-        {% else %}
-          <div class="text-muted">Sem contas.</div>
-        {% endif %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Financeiro | Ctrl-H</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background:#0f172a; color:#e2e8f0; }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap;}
+    .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:16px; margin-bottom:16px; }
+    h1 { margin:0; font-size:20px; }
+    h2 { margin:0 0 10px 0; font-size:15px; color:#93c5fd; }
+    a { color:#93c5fd; text-decoration:none; }
+    label { display:block; color:#94a3b8; font-size:12px; margin:10px 0 6px; }
+    input, select { width:100%; padding:10px; border-radius:10px; border:1px solid #1f2937; background:#0b1220; color:#e2e8f0; }
+    button { padding:10px 12px; border-radius:10px; border:0; background:#2563eb; color:white; font-weight:700; cursor:pointer; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; }
+    .muted { color:#94a3b8; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #1f2937; padding:10px; text-align:left; font-size: 13px; }
+    .pill { display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid #1f2937; background:#0b1220; }
+    .danger { background:#ef4444; }
+    .btn-danger { background:#ef4444; }
+    .right { text-align:right; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>💰 Financeiro</h1>
+      <div>
+        <a class="pill" href="/">⬅ Voltar</a>
+        <a class="pill" href="/logout">Sair</a>
       </div>
     </div>
-  </div>
 
-  <div class="col-12 col-xl-6">
-    <div class="card shadow-sm">
-      <div class="card-header fw-semibold">Lançamentos (Receitas/Despesas)</div>
-      <div class="card-body">
-        <form class="row g-2 mb-3" method="post" action="{{ url_for('finance.add_tx') }}">
-          <div class="col-6 col-md-3">
-            <select class="form-select" name="kind">
-              <option value="expense">Despesa</option>
-              <option value="income">Receita</option>
+    <div class="card">
+      <h2>Novo lançamento</h2>
+
+      {% if error %}
+        <div class="muted" style="color:#fca5a5;">{{ error }}</div>
+      {% endif %}
+
+      <form method="post">
+        <div class="row3">
+          <div>
+            <label>Tipo</label>
+            <select name="type" required>
+              <option value="OUT">Saída (Gasto)</option>
+              <option value="IN">Entrada</option>
             </select>
           </div>
-          <div class="col-6 col-md-3">
-            <input class="form-control" name="date" type="date">
+          <div>
+            <label>Valor</label>
+            <input name="amount" placeholder="Ex: 25.90" required>
           </div>
-          <div class="col-12 col-md-6">
-            <select class="form-select" name="category_id">
-              <option value="">Categoria (opcional)</option>
-              {% for c in cats %}
-                <option value="{{ c.id }}">{{ c.name }}</option>
-              {% endfor %}
-            </select>
+          <div>
+            <label>Data</label>
+            <input name="happened_on" type="date">
           </div>
-          <div class="col-12 col-md-8">
-            <input class="form-control" name="description" placeholder="Descrição" required>
-          </div>
-          <div class="col-6 col-md-4">
-            <input class="form-control" name="amount" type="number" step="0.01" placeholder="Valor" required>
-          </div>
-          <div class="col-12">
-            <button class="btn btn-dark btn-sm">Lançar</button>
-          </div>
-        </form>
-
-        <div class="alert alert-secondary py-2 small mb-0">
-          Dica: use <b>Receita</b> para salário/entradas e <b>Despesa</b> para gastos (com categoria).
         </div>
+
+        <div class="row">
+          <div>
+            <label>Categoria</label>
+            <input name="category" placeholder="Ex: Mercado / Energia / Internet" value="Geral">
+          </div>
+          <div>
+            <label>Observação</label>
+            <input name="note" placeholder="Opcional">
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <button type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Resumo do mês ({{ "%02d"|format(month) }}/{{ year }})</h2>
+      <div class="row">
+        <div class="pill">Entradas: <b>R$ {{ "%.2f"|format(total_in) }}</b></div>
+        <div class="pill">Saídas: <b>R$ {{ "%.2f"|format(total_out) }}</b></div>
       </div>
     </div>
 
-    <div class="card shadow-sm mt-3">
-      <div class="card-header fw-semibold">Budgets (orçamento por categoria)</div>
-      <div class="card-body">
-        <form class="row g-2 mb-3" method="post" action="{{ url_for('finance.set_budget') }}">
-          <div class="col-8">
-            <select class="form-select" name="category_id" required>
-              {% for c in cats %}
-                <option value="{{ c.id }}">{{ c.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-4">
-            <input class="form-control" name="amount" type="number" step="0.01" placeholder="Budget" required>
-          </div>
-          <div class="col-12">
-            <button class="btn btn-outline-dark btn-sm">Salvar budget</button>
-          </div>
-        </form>
+    <div class="card">
+      <h2>Lançamentos</h2>
 
-        {% if budgets %}
-          {% for row in budgets %}
-            <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
-              <div class="text-truncate">
-                <span class="fw-semibold">{{ row.category }}</span>
-                <span class="text-muted small ms-2">{{ brl(row.budget) }} / {{ brl(row.real) }}</span>
-              </div>
-              <span class="badge text-bg-{{ 'success' if row.delta >= 0 else 'danger' }}">
-                {{ 'OK' if row.delta >= 0 else 'Estourou' }}
-              </span>
-            </div>
-          {% endfor %}
-        {% else %}
-          <div class="text-muted">Defina budgets para começar.</div>
-        {% endif %}
-      </div>
+      {% if items and items|length > 0 %}
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Tipo</th>
+              <th>Categoria</th>
+              <th>Obs.</th>
+              <th class="right">Valor</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for x in items %}
+              <tr>
+                <td>{{ x.happened_on }}</td>
+                <td>
+                  {% if x.type == "OUT" %}
+                    <span class="pill danger">OUT</span>
+                  {% else %}
+                    <span class="pill">IN</span>
+                  {% endif %}
+                </td>
+                <td>{{ x.category }}</td>
+                <td class="muted">{{ x.note or "" }}</td>
+                <td class="right">R$ {{ "%.2f"|format(x.amount) }}</td>
+                <td class="right">
+                  <form method="post" action="/finance/delete/{{ x.id }}" onsubmit="return confirm('Excluir lançamento?');">
+                    <button class="btn-danger" type="submit">Excluir</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="muted">Nenhum lançamento neste mês ainda.</div>
+      {% endif %}
     </div>
   </div>
-</div>
-{% endblock %}
+</body>
+</html>
