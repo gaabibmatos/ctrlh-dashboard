@@ -10,34 +10,61 @@ from app.extensions import db
 from app.models import User
 
 
-def ensure_users_columns():
-    """
-    Ajusta schema legado no Postgres (Render) sem usar migrations.
-    - Garante coluna is_admin
-    """
-    engine = db.engine
-    dialect = engine.dialect.name
-
-    # Só faz sentido em Postgres; no SQLite tanto faz.
-    if dialect != "postgresql":
-        return
-
-    # Checa se coluna is_admin existe
+def _pg_has_column(table: str, column: str) -> bool:
     check_sql = """
     SELECT 1
     FROM information_schema.columns
-    WHERE table_name = 'users' AND column_name = 'is_admin'
+    WHERE table_name = :table_name AND column_name = :column_name
     LIMIT 1;
     """
+    with db.engine.connect() as conn:
+        return conn.execute(
+            db.text(check_sql),
+            {"table_name": table, "column_name": column},
+        ).fetchone() is not None
 
-    with engine.connect() as conn:
-        exists = conn.execute(db.text(check_sql)).fetchone() is not None
-        if not exists:
-            print("[MIGRATION] Adicionando coluna users.is_admin ...")
+
+def ensure_users_columns():
+    if db.engine.dialect.name != "postgresql":
+        return
+
+    if not _pg_has_column("users", "is_admin"):
+        print("[MIGRATION] users.is_admin -> adicionando ...")
+        with db.engine.connect() as conn:
             conn.execute(db.text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE;"))
             conn.commit()
-        else:
-            print("[OK] Coluna users.is_admin já existe.")
+    else:
+        print("[OK] users.is_admin já existe.")
+
+
+def ensure_transactions_columns():
+    """
+    Auto-migration para schema legado da tabela transactions.
+    Garante colunas: type, amount, category, note, happened_on, created_at
+    """
+    if db.engine.dialect.name != "postgresql":
+        return
+
+    # Se a tabela nem existir ainda, create_all já resolve.
+    # Aqui a gente só ajusta quando ela existe mas está "antiga".
+    # (Caso a tabela não exista, information_schema.columns retorna vazio)
+    wanted = [
+        ("type", "VARCHAR(3) NOT NULL DEFAULT 'OUT'"),
+        ("amount", "NUMERIC(12,2) NOT NULL DEFAULT 0"),
+        ("category", "VARCHAR(80) NOT NULL DEFAULT 'Geral'"),
+        ("note", "VARCHAR(255)"),
+        ("happened_on", "DATE NOT NULL DEFAULT CURRENT_DATE"),
+        ("created_at", "TIMESTAMP NOT NULL DEFAULT NOW()"),
+    ]
+
+    for col, ddl in wanted:
+        if not _pg_has_column("transactions", col):
+            print(f"[MIGRATION] transactions.{col} -> adicionando ...")
+            with db.engine.connect() as conn:
+                conn.execute(db.text(f"ALTER TABLE transactions ADD COLUMN {col} {ddl};"))
+                conn.commit()
+
+    print("[OK] transactions schema conferido.")
 
 
 def ensure_admin():
@@ -46,26 +73,32 @@ def ensure_admin():
 
     existing = User.query.filter_by(username=admin_user).first()
     if existing:
-        # garante que seja admin
         try:
             existing.is_admin = True
             db.session.commit()
         except Exception:
             db.session.rollback()
-        print(f"Admin '{admin_user}' já existe. (ok)")
+        print(f"[OK] Admin '{admin_user}' já existe.")
         return
 
     u = User(username=admin_user, is_admin=True)
     u.set_password(admin_pass)
     db.session.add(u)
     db.session.commit()
-    print(f"Admin criado: {admin_user} / {admin_pass}")
+    print(f"[OK] Admin criado: {admin_user} / {admin_pass}")
 
 
 app = create_app()
 
 with app.app_context():
+    # cria tabelas novas que não existirem
     db.create_all()
+
+    # corrige schemas antigos no Postgres
     ensure_users_columns()
+    ensure_transactions_columns()
+
+    # garante admin
     ensure_admin()
+
     print("DB initialized + schema fixed + admin ensured.")
