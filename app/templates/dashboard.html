@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h3 class="mb-0">Dashboard de Operações</h3>
+    <div class="text-muted small">Semana: {{ week_label(today) }} • Mês: {{ ym_label(year, month) }}</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold">1) Financeiro (Cash Flow)</div>
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="fw-semibold">Status de Liquidação</div>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('finance.index') }}">Abrir</a>
+        </div>
+        <div class="mt-2">
+          {% if bills %}
+            {% for b in bills[:6] %}
+              <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+                <div>
+                  <span class="badge text-bg-{{ 'success' if b.paid else 'warning' }}">{{ 'PAGO' if b.paid else 'PENDENTE' }}</span>
+                  <span class="ms-2">{{ b.description }}</span>
+                  {% if b.due_date %}<span class="text-muted small ms-2">(venc. {{ b.due_date.strftime('%d/%m') }})</span>{% endif %}
+                </div>
+                <div class="fw-semibold">{{ brl(b.amount) }}</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted">Sem contas cadastradas para este mês.</div>
+          {% endif %}
+        </div>
+
+        <hr>
+
+        <div class="fw-semibold">Budget vs. Real</div>
+        <div class="mt-2">
+          {% if bvr %}
+            {% for row in bvr %}
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="text-truncate">
+                  <span class="fw-semibold">{{ row.category }}</span>
+                  <span class="text-muted small ms-2">{{ brl(row.budget) }} / {{ brl(row.real) }}</span>
+                </div>
+                <span class="badge text-bg-{{ 'success' if row.delta >= 0 else 'danger' }}">
+                  {{ 'OK' if row.delta >= 0 else 'Estourou' }}
+                </span>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted">Defina budgets em Financeiro.</div>
+          {% endif %}
+        </div>
+
+        <hr>
+
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="fw-semibold">Net Profit (Sobra)</div>
+          <div class="fs-5 fw-bold">{{ brl(sobra) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold">2) Supply Chain (Estoque & Ativos)</div>
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="fw-semibold">Stock Out (nível crítico)</div>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('supply.index') }}">Abrir</a>
+        </div>
+        <div class="mt-2">
+          {% if crit %}
+            {% for it in crit[:6] %}
+              <div class="d-flex justify-content-between border rounded px-2 py-1 mb-2">
+                <div>{{ it.name }} <span class="text-muted small">({{ it.qty }} {{ it.unit }})</span></div>
+                <span class="badge text-bg-danger">CRÍTICO</span>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted">Nenhum item em nível crítico.</div>
+          {% endif %}
+        </div>
+
+        <hr>
+        <div class="fw-semibold">Asset Log (Eletros)</div>
+        <div class="mt-2">
+          {% if assets %}
+            {% for a in assets %}
+              <div class="d-flex justify-content-between border rounded px-2 py-1 mb-2">
+                <div class="text-truncate">
+                  {{ a.name }}
+                  {% if a.note %}<span class="text-muted small ms-2">{{ a.note }}</span>{% endif %}
+                </div>
+                <span class="badge text-bg-{{ 'success' if a.status=='OK' else ('warning' if a.status=='ATENCAO' else 'danger') }}">{{ a.status }}</span>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted">Sem ativos cadastrados.</div>
+          {% endif %}
+        </div>
+
+        <hr>
+        <div class="fw-semibold">Próxima Aquisição</div>
+        <div class="mt-2">
+          {% if acq %}
+            {% set pct = ( (acq.saved_amount / acq.target_amount) * 100 ) if acq.target_amount else 0 %}
+            <div class="d-flex justify-content-between">
+              <div class="fw-semibold">{{ acq.name }}</div>
+              <div class="text-muted">{{ brl(acq.saved_amount) }} / {{ brl(acq.target_amount) }}</div>
+            </div>
+            <div class="progress mt-2" style="height: 10px;">
+              <div class="progress-bar" role="progressbar" style="width: {{ pct|round(0) }}%"></div>
+            </div>
+          {% else %}
+            <div class="text-muted">Defina a aquisição planejada em Estoque & Ativos.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold">3) Operacional (Escala de Tarefas)</div>
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="fw-semibold">Daily Ops (hoje)</div>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('ops.index') }}">Abrir</a>
+        </div>
+        <div class="mt-2">
+          {% if tasks %}
+            {% for t in tasks[:8] %}
+              <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+                <div>
+                  <span class="badge text-bg-{{ 'success' if t.done else 'secondary' }}">{{ 'FEITO' if t.done else 'PENDENTE' }}</span>
+                  <span class="ms-2">{{ t.title }}</span>
+                  {% if t.owner %}<span class="text-muted small ms-2">(Owner: {{ t.owner.name }})</span>{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted">Sem tarefas do dia cadastradas.</div>
+          {% endif %}
+        </div>
+
+        <hr>
+        <div class="fw-semibold">Deep Clean (cronograma)</div>
+        <div class="mt-2 small">
+          {% set dow = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'] %}
+          {% if deep %}
+            {% for d in deep[:10] %}
+              <div class="d-flex justify-content-between border rounded px-2 py-1 mb-2">
+                <div>{{ dow[d.day_of_week] }} — {{ d.area }} {% if d.owner %}<span class="text-muted">(Owner: {{ d.owner.name }})</span>{% endif %}</div>
+                <div class="text-muted">{% if d.last_done %}Últ.: {{ d.last_done.strftime('%d/%m') }}{% else %}Nunca{% endif %}</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted">Sem cronograma de deep clean.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold">4) Performance (Insights)</div>
+      <div class="card-body">
+        <div class="fw-semibold">Eficiência de Gastos (mês)</div>
+        <div class="mt-2">
+          {% if eff %}
+            {% for name, total in eff %}
+              <div class="d-flex justify-content-between border rounded px-2 py-1 mb-2">
+                <div>{{ name }}</div>
+                <div class="fw-semibold">{{ brl(total) }}</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-muted">Sem despesas registradas no mês.</div>
+          {% endif %}
+        </div>
+
+        <hr>
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="fw-semibold">Health Score (semana)</div>
+          <div class="fs-4 fw-bold">{{ "%.1f"|format(score) }}/10</div>
+        </div>
+        <div class="mt-2">
+          {% if reasons %}
+            <ul class="small text-muted mb-0">
+              {% for r in reasons %}
+                <li>{{ r }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-muted small">Tudo em dia ✅</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

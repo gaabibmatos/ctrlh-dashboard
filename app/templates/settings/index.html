@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h3 class="mb-0">Configurações</h3>
+    <div class="text-muted small">Owners (responsáveis) e Categorias</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Owners</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('settings.add_owner') }}">
+          <div class="col-8">
+            <input class="form-control" name="name" placeholder="Nome do responsável" required>
+          </div>
+          <div class="col-4">
+            <button class="btn btn-dark w-100">Adicionar</button>
+          </div>
+        </form>
+
+        {% if owners %}
+          {% for o in owners %}
+            <div class="border rounded px-2 py-1 mb-2">{{ o.name }}</div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted">Sem owners cadastrados.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Categorias</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('settings.add_category') }}">
+          <div class="col-8">
+            <input class="form-control" name="name" placeholder="Nome da categoria (ex: Mercado)" required>
+          </div>
+          <div class="col-4">
+            <button class="btn btn-dark w-100">Adicionar</button>
+          </div>
+        </form>
+
+        {% if cats %}
+          {% for c in cats %}
+            <div class="border rounded px-2 py-1 mb-2">{{ c.name }}</div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted">Sem categorias cadastradas.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

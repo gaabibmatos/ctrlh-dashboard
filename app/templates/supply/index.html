@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h3 class="mb-0">Estoque & Ativos</h3>
+    <div class="text-muted small">Stock Out, Asset Log e Próxima Aquisição</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Stock (itens de mercado)</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('supply.add_stock') }}">
+          <div class="col-12 col-md-5">
+            <input class="form-control" name="name" placeholder="Item (ex: Arroz)" required>
+          </div>
+          <div class="col-4 col-md-2">
+            <input class="form-control" name="unit" placeholder="un/kg" value="un">
+          </div>
+          <div class="col-4 col-md-2">
+            <input class="form-control" name="qty" type="number" step="0.01" placeholder="Qtd" required>
+          </div>
+          <div class="col-4 col-md-3">
+            <input class="form-control" name="min_qty" type="number" step="0.01" placeholder="Mínimo" required>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-dark btn-sm">Salvar</button>
+          </div>
+        </form>
+
+        {% if stock %}
+          {% for it in stock %}
+            {% set critical = (it.qty <= it.min_qty) %}
+            <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+              <div class="text-truncate">
+                <span class="fw-semibold">{{ it.name }}</span>
+                <span class="text-muted small ms-2">{{ it.qty }} {{ it.unit }} • mínimo {{ it.min_qty }}</span>
+              </div>
+              <span class="badge text-bg-{{ 'danger' if critical else 'success' }}">{{ 'CRÍTICO' if critical else 'OK' }}</span>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted">Sem itens cadastrados.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Asset Log (Eletros)</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('supply.add_asset') }}">
+          <div class="col-12 col-md-5">
+            <input class="form-control" name="name" placeholder="Equipamento (ex: Geladeira)" required>
+          </div>
+          <div class="col-6 col-md-3">
+            <select class="form-select" name="status">
+              <option value="OK">OK</option>
+              <option value="ATENCAO">ATENÇÃO</option>
+              <option value="TROCAR">TROCAR</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <input class="form-control" name="next_maintenance" type="date">
+          </div>
+          <div class="col-12">
+            <input class="form-control" name="note" placeholder="Observação (ex: Limpeza em 15 dias)">
+          </div>
+          <div class="col-12">
+            <button class="btn btn-dark btn-sm">Salvar</button>
+          </div>
+        </form>
+
+        {% if assets %}
+          {% for a in assets %}
+            <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+              <div class="text-truncate">
+                <span class="fw-semibold">{{ a.name }}</span>
+                {% if a.note %}<span class="text-muted small ms-2">{{ a.note }}</span>{% endif %}
+                {% if a.next_maintenance %}<span class="text-muted small ms-2">(manut. {{ a.next_maintenance.strftime('%d/%m') }})</span>{% endif %}
+              </div>
+              <span class="badge text-bg-{{ 'success' if a.status=='OK' else ('warning' if a.status=='ATENCAO' else 'danger') }}">{{ a.status }}</span>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted">Sem ativos cadastrados.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+      <div class="card-header fw-semibold">Próxima Aquisição (meta + reserva)</div>
+      <div class="card-body">
+        <form class="row g-2" method="post" action="{{ url_for('supply.set_acq') }}">
+          <div class="col-12 col-md-6">
+            <input class="form-control" name="name" placeholder="Item (ex: Notebook)" value="{{ acq.name if acq else '' }}" required>
+          </div>
+          <div class="col-6 col-md-3">
+            <input class="form-control" name="target_amount" type="number" step="0.01" placeholder="Meta" value="{{ acq.target_amount if acq else '' }}" required>
+          </div>
+          <div class="col-6 col-md-3">
+            <input class="form-control" name="saved_amount" type="number" step="0.01" placeholder="Reserva" value="{{ acq.saved_amount if acq else '' }}" required>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-outline-dark btn-sm">Salvar</button>
+          </div>
+        </form>
+
+        {% if acq %}
+          {% set pct = ( (acq.saved_amount / acq.target_amount) * 100 ) if acq.target_amount else 0 %}
+          <div class="mt-3">
+            <div class="d-flex justify-content-between">
+              <div class="fw-semibold">{{ acq.name }}</div>
+              <div class="text-muted">{{ brl(acq.saved_amount) }} / {{ brl(acq.target_amount) }}</div>
+            </div>
+            <div class="progress mt-2" style="height: 10px;">
+              <div class="progress-bar" role="progressbar" style="width: {{ pct|round(0) }}%"></div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

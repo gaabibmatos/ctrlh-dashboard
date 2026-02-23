@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h3 class="mb-0">Financeiro</h3>
+    <div class="text-muted small">Mês: {{ ym_label(year, month) }}</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Status de Liquidação</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('finance.add_bill') }}">
+          <div class="col-12 col-md-6">
+            <input class="form-control" name="description" placeholder="Conta (ex: Aluguel)" required>
+          </div>
+          <div class="col-6 col-md-3">
+            <input class="form-control" name="amount" type="number" step="0.01" placeholder="Valor" required>
+          </div>
+          <div class="col-6 col-md-3">
+            <input class="form-control" name="due_date" type="date" placeholder="Vencimento">
+          </div>
+          <div class="col-12">
+            <button class="btn btn-dark btn-sm">Adicionar</button>
+          </div>
+        </form>
+
+        {% if bills %}
+          {% for b in bills %}
+            <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+              <div class="text-truncate">
+                <span class="badge text-bg-{{ 'success' if b.paid else 'warning' }}">{{ 'PAGO' if b.paid else 'PENDENTE' }}</span>
+                <span class="ms-2">{{ b.description }}</span>
+                {% if b.due_date %}<span class="text-muted small ms-2">(venc. {{ b.due_date.strftime('%d/%m') }})</span>{% endif %}
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="fw-semibold">{{ brl(b.amount) }}</div>
+                <form method="post" action="{{ url_for('finance.toggle_bill', bill_id=b.id) }}">
+                  <button class="btn btn-sm btn-outline-secondary">{{ 'Desmarcar' if b.paid else 'Marcar pago' }}</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted">Sem contas.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Lançamentos (Receitas/Despesas)</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('finance.add_tx') }}">
+          <div class="col-6 col-md-3">
+            <select class="form-select" name="kind">
+              <option value="expense">Despesa</option>
+              <option value="income">Receita</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <input class="form-control" name="date" type="date">
+          </div>
+          <div class="col-12 col-md-6">
+            <select class="form-select" name="category_id">
+              <option value="">Categoria (opcional)</option>
+              {% for c in cats %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12 col-md-8">
+            <input class="form-control" name="description" placeholder="Descrição" required>
+          </div>
+          <div class="col-6 col-md-4">
+            <input class="form-control" name="amount" type="number" step="0.01" placeholder="Valor" required>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-dark btn-sm">Lançar</button>
+          </div>
+        </form>
+
+        <div class="alert alert-secondary py-2 small mb-0">
+          Dica: use <b>Receita</b> para salário/entradas e <b>Despesa</b> para gastos (com categoria).
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+      <div class="card-header fw-semibold">Budgets (orçamento por categoria)</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('finance.set_budget') }}">
+          <div class="col-8">
+            <select class="form-select" name="category_id" required>
+              {% for c in cats %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-4">
+            <input class="form-control" name="amount" type="number" step="0.01" placeholder="Budget" required>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-outline-dark btn-sm">Salvar budget</button>
+          </div>
+        </form>
+
+        {% if budgets %}
+          {% for row in budgets %}
+            <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+              <div class="text-truncate">
+                <span class="fw-semibold">{{ row.category }}</span>
+                <span class="text-muted small ms-2">{{ brl(row.budget) }} / {{ brl(row.real) }}</span>
+              </div>
+              <span class="badge text-bg-{{ 'success' if row.delta >= 0 else 'danger' }}">
+                {{ 'OK' if row.delta >= 0 else 'Estourou' }}
+              </span>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted">Defina budgets para começar.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

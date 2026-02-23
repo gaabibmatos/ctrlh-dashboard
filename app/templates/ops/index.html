@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h3 class="mb-0">Operação (Tarefas)</h3>
+    <div class="text-muted small">Hoje: {{ today.strftime('%d/%m/%Y') }}</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Daily Ops (tarefas do dia)</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('ops.add_task') }}">
+          <div class="col-12 col-md-7">
+            <input class="form-control" name="title" placeholder="Tarefa (ex: Retirar lixo)" required>
+          </div>
+          <div class="col-12 col-md-5">
+            <select class="form-select" name="owner_id">
+              <option value="">Owner (opcional)</option>
+              {% for o in owners %}
+                <option value="{{ o.id }}">{{ o.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-dark btn-sm">Adicionar</button>
+          </div>
+        </form>
+
+        {% if tasks %}
+          {% for t in tasks %}
+            <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+              <div class="text-truncate">
+                <span class="badge text-bg-{{ 'success' if t.done else 'secondary' }}">{{ 'FEITO' if t.done else 'PENDENTE' }}</span>
+                <span class="ms-2">{{ t.title }}</span>
+                {% if t.owner %}<span class="text-muted small ms-2">(Owner: {{ t.owner.name }})</span>{% endif %}
+              </div>
+              <form method="post" action="{{ url_for('ops.toggle_task', task_id=t.id) }}">
+                <button class="btn btn-sm btn-outline-secondary">{{ 'Desfazer' if t.done else 'Marcar feito' }}</button>
+              </form>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted">Sem tarefas hoje.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Deep Clean (cronograma)</div>
+      <div class="card-body">
+        <form class="row g-2 mb-3" method="post" action="{{ url_for('ops.add_deep') }}">
+          <div class="col-6 col-md-3">
+            <select class="form-select" name="day_of_week" required>
+              <option value="0">Seg</option>
+              <option value="1">Ter</option>
+              <option value="2">Qua</option>
+              <option value="3">Qui</option>
+              <option value="4">Sex</option>
+              <option value="5">Sáb</option>
+              <option value="6">Dom</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <input class="form-control" name="area" placeholder="Área (ex: Cozinha)" required>
+          </div>
+          <div class="col-12 col-md-5">
+            <select class="form-select" name="owner_id">
+              <option value="">Owner (opcional)</option>
+              {% for o in owners %}
+                <option value="{{ o.id }}">{{ o.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-dark btn-sm">Adicionar</button>
+          </div>
+        </form>
+
+        {% set dow = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'] %}
+        {% if deep %}
+          {% for d in deep %}
+            <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2">
+              <div class="text-truncate">
+                <span class="fw-semibold">{{ dow[d.day_of_week] }}</span>
+                <span class="ms-2">{{ d.area }}</span>
+                {% if d.owner %}<span class="text-muted small ms-2">(Owner: {{ d.owner.name }})</span>{% endif %}
+                <span class="text-muted small ms-2">{% if d.last_done %}Últ.: {{ d.last_done.strftime('%d/%m') }}{% else %}Nunca{% endif %}</span>
+              </div>
+              <form method="post" action="{{ url_for('ops.deep_done', deep_id=d.id) }}">
+                <button class="btn btn-sm btn-outline-secondary">Marcar feito hoje</button>
+              </form>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted">Sem cronograma.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
