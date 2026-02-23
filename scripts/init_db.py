@@ -6,7 +6,7 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 from app import create_app
-from app.db_init import init_db   # <-- TROCOU AQUI
+from app.db_init import init_db
 
 app = create_app()
 
