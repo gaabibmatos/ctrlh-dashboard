@@ -30,4 +30,9 @@ def create_app():
     app.register_blueprint(ops_bp, url_prefix="/ops")
     app.register_blueprint(settings_bp, url_prefix="/settings")
 
+    from .utils import brl, ym_label, week_label
+    app.jinja_env.globals["brl"] = brl
+    app.jinja_env.globals["ym_label"] = ym_label
+    app.jinja_env.globals["week_label"] = week_label
+
     return app
