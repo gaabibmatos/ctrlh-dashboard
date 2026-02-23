@@ -18,11 +18,16 @@
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>🖥️ Ctrl-H | Dashboard de Operações</h1>
-      <div class="muted">Mês: <span class="pill">{{ "%02d"|format(month) }}/{{ year }}</span></div>
+<div class="wrap">
+
+  <div class="top" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <h1>📊 Dashboard</h1>
+
+    <div style="display:flex; gap:8px;">
+      <a class="pill" href="/finance/">💰 Financeiro</a>
+      <a class="pill" href="/logout">Sair</a>
     </div>
+  </div>
 
     <div class="grid">
       <div class="card">
