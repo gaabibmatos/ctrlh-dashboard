@@ -5,6 +5,7 @@ from ..models import User
 
 bp = Blueprint("auth", __name__)
 
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     error = None
@@ -20,6 +21,7 @@ def login():
             return redirect(url_for("dashboard.index"))
 
     return render_template("auth/login.html", error=error)
+
 
 @bp.route("/logout")
 @login_required
