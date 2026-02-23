@@ -18,14 +18,12 @@ def create_app():
 
     from .routes.dashboard import bp as dashboard_bp
     from .routes.auth import bp as auth_bp
-    from .routes.finance import bp as finance_bp
     from .routes.supply import bp as supply_bp
     from .routes.ops import bp as ops_bp
     from .routes.settings import bp as settings_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
-    app.register_blueprint(finance_bp, url_prefix="/finance")
     app.register_blueprint(supply_bp, url_prefix="/supply")
     app.register_blueprint(ops_bp, url_prefix="/ops")
     app.register_blueprint(settings_bp, url_prefix="/settings")
