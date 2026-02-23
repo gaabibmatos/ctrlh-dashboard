@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template
 from datetime import datetime
-
-from ..extensions import db
+from flask_login import login_required
 
 bp = Blueprint("dashboard", __name__)
 
@@ -12,16 +11,13 @@ def ym_now():
 
 
 @bp.route("/")
+@login_required
 def index():
     year, month = ym_now()
 
-    # Por enquanto, dashboard não depende de models específicos.
-    # (evita quebrar o deploy se o model financeiro ainda não existir)
+    # Placeholder por enquanto
     total = 0
     latest = []
-
-    # Se no futuro existir um model com campos (amount, date), você pluga aqui.
-    # Exemplo: Transaction / Expense / Lancamento etc.
 
     return render_template(
         "dashboard/index.html",
