@@ -17,10 +17,34 @@ def build_db_uri():
         url = url.replace("postgres://", "postgresql://", 1)
 
     # Força uso do driver psycopg3 (evita psycopg2)
-    if url.startswith("postgresql://") and "+psycopg" not in url:
+    if url.startswith("postgresql://") and "+psycopg" not in url and "+psycopg2" not in url:
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
 
     return url
+
+
+# ===============================
+# Helpers de data (Ano/Mês)
+# ===============================
+def ym_now():
+    """Retorna (year, month) do momento atual."""
+    now = datetime.now()
+    return now.year, now.month
+
+
+def ym_prev(year: int, month: int):
+    """Retorna (year, month) do mês anterior."""
+    if month == 1:
+        return year - 1, 12
+    return year, month - 1
+
+
+def ym_label(year, month):
+    """Formata Ano/Mês como MM/YYYY"""
+    try:
+        return f"{int(month):02d}/{int(year)}"
+    except Exception:
+        return ""
 
 
 # ===============================
@@ -34,16 +58,8 @@ def brl(value):
         return "R$ 0,00"
 
 
-def ym_label(year, month):
-    """Formata Ano/Mês"""
-    try:
-        return f"{month:02d}/{year}"
-    except Exception:
-        return ""
-
-
 def week_label(date_obj):
-    """Formata semana"""
+    """Formata semana ISO."""
     if isinstance(date_obj, datetime):
         return f"Semana {date_obj.isocalendar()[1]}"
     return ""
