@@ -20,7 +20,6 @@ def _parse_amount_br(raw: str) -> Decimal:
       - R$ 25,90
       - 1.234,56
       - 1234.56
-    Retorna Decimal.
     """
     if raw is None:
         raise InvalidOperation("amount vazio")
@@ -29,14 +28,11 @@ def _parse_amount_br(raw: str) -> Decimal:
     if not s:
         raise InvalidOperation("amount vazio")
 
-    # remove símbolos e espaços
     s = s.replace("R$", "").replace(" ", "")
 
-    # se tiver vírgula, assume formato BR (milhar '.' e decimal ',')
+    # Se tiver vírgula, assume formato BR
     if "," in s:
         s = s.replace(".", "").replace(",", ".")
-    # senão mantém como está (já deve estar em 1234.56)
-
     return Decimal(s)
 
 
@@ -52,7 +48,6 @@ def _month_range(year: int, month: int) -> tuple[date, date]:
 @bp.route("/", methods=["GET", "POST"])
 @login_required
 def index():
-    # mês selecionado (YYYY-MM)
     ym = (request.args.get("ym") or "").strip()
     if not ym:
         ym = date.today().strftime("%Y-%m")
@@ -65,7 +60,6 @@ def index():
         ym = f"{year:04d}-{month:02d}"
 
     if request.method == "POST":
-        # Campos do form
         t_type = (request.form.get("type") or "OUT").strip().upper()
         category = (request.form.get("category") or "Geral").strip()
         note = (request.form.get("note") or "").strip()
@@ -73,28 +67,25 @@ def index():
         amount_raw = request.form.get("amount") or ""
         happened_on_raw = (request.form.get("happened_on") or "").strip()
 
-        # Parse amount
         try:
             amount = _parse_amount_br(amount_raw)
         except InvalidOperation:
             flash("Valor inválido. Ex: 1200,50", "error")
             return redirect(url_for("finance.index", ym=ym))
 
-        # Parse date (fallback: hoje)
         try:
-            if happened_on_raw:
-                happened_on = datetime.strptime(happened_on_raw, "%Y-%m-%d").date()
-            else:
-                happened_on = date.today()
+            happened_on = (
+                datetime.strptime(happened_on_raw, "%Y-%m-%d").date()
+                if happened_on_raw
+                else date.today()
+            )
         except Exception:
             flash("Data inválida. Use o seletor de data.", "error")
             return redirect(url_for("finance.index", ym=ym))
 
-        # Normaliza type
         if t_type not in ("IN", "OUT"):
             t_type = "OUT"
 
-        # Salva
         try:
             tx = Transaction(
                 type=t_type,
@@ -104,10 +95,11 @@ def index():
                 happened_on=happened_on,
             )
 
-            # Compatibilidade se o model tiver coluna antiga "date"
-            # (se não tiver, isso não faz nada)
+            # Se algum schema antigo mapeou essas colunas no model (opcional)
             if hasattr(Transaction, "date"):
                 tx.date = happened_on  # type: ignore[attr-defined]
+            if hasattr(Transaction, "kind"):
+                tx.kind = t_type  # type: ignore[attr-defined]
 
             db.session.add(tx)
             db.session.commit()
@@ -118,7 +110,6 @@ def index():
 
         return redirect(url_for("finance.index", ym=ym))
 
-    # GET: listar mês
     start, end = _month_range(year, month)
 
     items = (
@@ -129,7 +120,6 @@ def index():
         .all()
     )
 
-    # Totais simples
     total_in = sum((t.amount for t in items if getattr(t, "type", "OUT") == "IN"), Decimal("0"))
     total_out = sum((t.amount for t in items if getattr(t, "type", "OUT") != "IN"), Decimal("0"))
     net = total_in - total_out
