@@ -4,111 +4,31 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Financeiro | Ctrl-H</title>
-
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 24px;
-      background:#0f172a;
-      color:#e2e8f0;
-    }
-
+    body { font-family: Arial, sans-serif; margin: 24px; background:#0f172a; color:#e2e8f0; }
     .wrap { max-width: 1100px; margin: 0 auto; }
-
-    .top {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:18px;
-      flex-wrap:wrap;
-      gap:12px;
-    }
-
+    .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:12px; }
     h1 { margin:0; font-size:22px; }
-
     a { text-decoration:none; color:#93c5fd; }
-
-    .pill {
-      display:inline-block;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid #1f2937;
-      background:#111827;
-      font-size:13px;
-    }
-
-    .card {
-      background:#111827;
-      border:1px solid #1f2937;
-      border-radius:14px;
-      padding:18px;
-      margin-bottom:18px;
-    }
-
-    h2 {
-      margin:0 0 12px 0;
-      font-size:15px;
-      color:#93c5fd;
-    }
-
-    label {
-      display:block;
-      margin:8px 0 5px;
-      font-size:12px;
-      color:#94a3b8;
-    }
-
-    input, select {
-      width:100%;
-      padding:10px;
-      border-radius:10px;
-      border:1px solid #1f2937;
-      background:#0b1220;
-      color:#e2e8f0;
-    }
-
-    button {
-      margin-top:12px;
-      padding:10px 14px;
-      border-radius:10px;
-      border:0;
-      background:#2563eb;
-      color:white;
-      font-weight:700;
-      cursor:pointer;
-    }
-
-    .btn-danger {
-      background:#ef4444;
-    }
-
+    .pill { display:inline-block; padding:6px 12px; border-radius:999px; border:1px solid #1f2937; background:#111827; font-size:13px; }
+    .card { background:#111827; border:1px solid #1f2937; border-radius:14px; padding:18px; margin-bottom:18px; }
+    h2 { margin:0 0 12px 0; font-size:15px; color:#93c5fd; }
+    label { display:block; margin:8px 0 5px; font-size:12px; color:#94a3b8; }
+    input, select { width:100%; padding:10px; border-radius:10px; border:1px solid #1f2937; background:#0b1220; color:#e2e8f0; }
+    button { margin-top:12px; padding:10px 14px; border-radius:10px; border:0; background:#2563eb; color:white; font-weight:700; cursor:pointer; }
     .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
-
-    table {
-      width:100%;
-      border-collapse:collapse;
-    }
-
-    th, td {
-      border-bottom:1px solid #1f2937;
-      padding:10px;
-      font-size:13px;
-    }
-
+    table { width:100%; border-collapse:collapse; }
+    th, td { border-bottom:1px solid #1f2937; padding:10px; font-size:13px; }
     th { color:#94a3b8; text-align:left; }
-
     .right { text-align:right; }
-
     .in { color:#22c55e; }
     .out { color:#ef4444; }
-
     .flash-success { color:#22c55e; margin-bottom:8px; }
     .flash-error { color:#f87171; margin-bottom:8px; }
   </style>
 </head>
 <body>
-
 <div class="wrap">
 
   <div class="top">
@@ -119,7 +39,6 @@
     </div>
   </div>
 
-  <!-- Flash messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       {% for category, message in messages %}
@@ -128,10 +47,8 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Novo Lançamento -->
   <div class="card">
     <h2>Novo lançamento</h2>
-
     <form method="post">
       <div class="row3">
         <div>
@@ -141,12 +58,10 @@
             <option value="IN">Entrada</option>
           </select>
         </div>
-
         <div>
           <label>Valor</label>
           <input name="amount" placeholder="Ex: 1200,50" required>
         </div>
-
         <div>
           <label>Data</label>
           <input name="happened_on" type="date">
@@ -158,7 +73,6 @@
           <label>Categoria</label>
           <input name="category" placeholder="Ex: Mercado / Energia / Internet">
         </div>
-
         <div>
           <label>Observação</label>
           <input name="note" placeholder="Opcional">
@@ -169,24 +83,21 @@
     </form>
   </div>
 
-  <!-- Resumo -->
   <div class="card">
     <h2>Resumo do mês ({{ "%02d"|format(month) }}/{{ year }})</h2>
-
     <div class="row">
       <div>Entradas: <strong class="in">R$ {{ "%.2f"|format(total_in) }}</strong></div>
       <div>Saídas: <strong class="out">R$ {{ "%.2f"|format(total_out) }}</strong></div>
     </div>
 
     <div style="margin-top:8px;">
-      Resultado: 
+      Resultado:
       <strong class="{{ 'in' if net >= 0 else 'out' }}">
         R$ {{ "%.2f"|format(net) }}
       </strong>
     </div>
   </div>
 
-  <!-- Lista -->
   <div class="card">
     <h2>Lançamentos</h2>
 
@@ -225,6 +136,5 @@
   </div>
 
 </div>
-
 </body>
 </html>
