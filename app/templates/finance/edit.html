@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editar lançamento | Ctrl-H</title>
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background:#0f172a; color:#e2e8f0; }
+    .wrap { max-width: 800px; margin: 0 auto; }
+    .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:12px; }
+    h1 { margin:0; font-size:22px; }
+    a { text-decoration:none; color:#93c5fd; }
+    .pill { display:inline-block; padding:6px 12px; border-radius:999px; border:1px solid #1f2937; background:#111827; font-size:13px; }
+    .card { background:#111827; border:1px solid #1f2937; border-radius:14px; padding:18px; margin-bottom:18px; }
+    label { display:block; margin:8px 0 5px; font-size:12px; color:#94a3b8; }
+    input, select { width:100%; padding:10px; border-radius:10px; border:1px solid #1f2937; background:#0b1220; color:#e2e8f0; }
+    button { margin-top:12px; padding:10px 14px; border-radius:10px; border:0; background:#2563eb; color:white; font-weight:700; cursor:pointer; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+    .flash-success { color:#22c55e; margin-bottom:8px; }
+    .flash-error { color:#f87171; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <h1>✏️ Editar lançamento</h1>
+    <div>
+      <a class="pill" href="{{ url_for('finance.index', ym=ym) }}">⬅ Voltar</a>
+      <a class="pill" href="/logout">Sair</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <form method="post">
+      <div class="row3">
+        <div>
+          <label>Tipo</label>
+          <select name="type">
+            <option value="OUT" {% if tx.type == 'OUT' %}selected{% endif %}>Saída (Gasto)</option>
+            <option value="IN" {% if tx.type == 'IN' %}selected{% endif %}>Entrada</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Valor</label>
+          <input name="amount" value="{{ '%.2f'|format(tx.amount) }}" required>
+        </div>
+
+        <div>
+          <label>Data</label>
+          <input name="happened_on" type="date" value="{{ tx.happened_on }}">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Categoria</label>
+          <input name="category" value="{{ tx.category or '' }}">
+        </div>
+        <div>
+          <label>Observação</label>
+          <input name="note" value="{{ tx.note or '' }}">
+        </div>
+      </div>
+
+      <button type="submit">Salvar alterações</button>
+    </form>
+  </div>
+
+</div>
+</body>
+</html>
