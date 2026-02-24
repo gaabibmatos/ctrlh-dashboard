@@ -19,7 +19,7 @@
     .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
     table { width:100%; border-collapse:collapse; }
-    th, td { border-bottom:1px solid #1f2937; padding:10px; font-size:13px; }
+    th, td { border-bottom:1px solid #1f2937; padding:10px; font-size:13px; vertical-align:middle; }
     th { color:#94a3b8; text-align:left; }
     .right { text-align:right; }
     .in { color:#22c55e; }
@@ -102,47 +102,49 @@
     <h2>Lançamentos</h2>
 
     {% if items %}
-<table>
-  <thead>
-    <tr>
-      <th>Data</th>
-      <th>Tipo</th>
-      <th>Categoria</th>
-      <th>Obs.</th>
-      <th class="right">Valor</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for t in items %}
-      <tr>
-        <td>{{ t.happened_on }}</td>
-        <td>
-          {% if t.type == 'IN' %}
-            <span class="in">IN</span>
-          {% else %}
-            <span class="out">OUT</span>
-          {% endif %}
-        </td>
-        <td>{{ t.category }}</td>
-        <td>{{ t.note or '' }}</td>
-        <td class="right">R$ {{ "%.2f"|format(t.amount) }}</td>
-        <td>
-          <a class="pill" href="{{ url_for('finance.edit', tx_id=t.id, ym=ym) }}">Editar</a>
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Tipo</th>
+            <th>Categoria</th>
+            <th>Obs.</th>
+            <th class="right">Valor</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in items %}
+            <tr>
+              <td>{{ t.happened_on }}</td>
+              <td>
+                {% if t.type == 'IN' %}
+                  <span class="in">IN</span>
+                {% else %}
+                  <span class="out">OUT</span>
+                {% endif %}
+              </td>
+              <td>{{ t.category }}</td>
+              <td>{{ t.note or '' }}</td>
+              <td class="right">R$ {{ "%.2f"|format(t.amount) }}</td>
+              <td>
+                <a class="pill" href="{{ url_for('finance.edit', tx_id=t.id, ym=ym) }}">Editar</a>
 
-          <form method="post"
-                action="{{ url_for('finance.delete', tx_id=t.id, ym=ym) }}"
-                style="display:inline;"
-                onsubmit="return confirm('Excluir este lançamento?');">
-            <button type="submit" class="pill" style="background:#ef4444; border:1px solid #7f1d1d; color:#fff; cursor:pointer;">
-              Excluir
-            </button>
-          </form>
-        </td>
-      </tr>
-    {% endfor %}
-  </tbody>
-</table>
+                <form method="post"
+                      action="{{ url_for('finance.delete', tx_id=t.id, ym=ym) }}"
+                      style="display:inline;"
+                      onsubmit="return confirm('Excluir este lançamento?');">
+                  <button type="submit"
+                          class="pill"
+                          style="background:#ef4444; border:1px solid #7f1d1d; color:#fff; cursor:pointer;">
+                    Excluir
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     {% else %}
       <div>Nenhum lançamento neste mês.</div>
     {% endif %}
