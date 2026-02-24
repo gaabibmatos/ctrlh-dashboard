@@ -1,7 +1,9 @@
-from datetime import date, datetime
-from decimal import Decimal
+from __future__ import annotations
 
-from flask import Blueprint, render_template, request, redirect, url_for
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 
 from ..extensions import db
@@ -10,85 +12,135 @@ from ..models import Transaction
 bp = Blueprint("finance", __name__, url_prefix="/finance")
 
 
-def ym_now():
-    now = datetime.now()
-    return now.year, now.month
+def _parse_amount_br(raw: str) -> Decimal:
+    """
+    Aceita:
+      - 25,90
+      - 25.90
+      - R$ 25,90
+      - 1.234,56
+      - 1234.56
+    Retorna Decimal.
+    """
+    if raw is None:
+        raise InvalidOperation("amount vazio")
+
+    s = raw.strip()
+    if not s:
+        raise InvalidOperation("amount vazio")
+
+    # remove símbolos e espaços
+    s = s.replace("R$", "").replace(" ", "")
+
+    # se tiver vírgula, assume formato BR (milhar '.' e decimal ',')
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    # senão mantém como está (já deve estar em 1234.56)
+
+    return Decimal(s)
+
+
+def _month_range(year: int, month: int) -> tuple[date, date]:
+    first = date(year, month, 1)
+    if month == 12:
+        nxt = date(year + 1, 1, 1)
+    else:
+        nxt = date(year, month + 1, 1)
+    return first, nxt
 
 
 @bp.route("/", methods=["GET", "POST"])
 @login_required
 def index():
-    year, month = ym_now()
-    error = None
+    # mês selecionado (YYYY-MM)
+    ym = (request.args.get("ym") or "").strip()
+    if not ym:
+        ym = date.today().strftime("%Y-%m")
+
+    try:
+        year = int(ym.split("-")[0])
+        month = int(ym.split("-")[1])
+    except Exception:
+        year, month = date.today().year, date.today().month
+        ym = f"{year:04d}-{month:02d}"
 
     if request.method == "POST":
+        # Campos do form
         t_type = (request.form.get("type") or "OUT").strip().upper()
-        category = (request.form.get("category") or "Geral").strip()[:80]
-        note = (request.form.get("note") or "").strip()[:255]
+        category = (request.form.get("category") or "Geral").strip()
+        note = (request.form.get("note") or "").strip()
 
-        amount_raw = (request.form.get("amount") or "").replace(",", ".").strip()
-        date_raw = (request.form.get("happened_on") or "").strip()
+        amount_raw = request.form.get("amount") or ""
+        happened_on_raw = (request.form.get("happened_on") or "").strip()
 
+        # Parse amount
         try:
-            amount = Decimal(amount_raw)
-            if amount <= 0:
-                raise ValueError("amount <= 0")
-        except Exception:
-            error = "Valor inválido. Ex: 25.90"
-            amount = None
+            amount = _parse_amount_br(amount_raw)
+        except InvalidOperation:
+            flash("Valor inválido. Ex: 1200,50", "error")
+            return redirect(url_for("finance.index", ym=ym))
 
+        # Parse date (fallback: hoje)
         try:
-            happened_on = date.fromisoformat(date_raw) if date_raw else date.today()
+            if happened_on_raw:
+                happened_on = datetime.strptime(happened_on_raw, "%Y-%m-%d").date()
+            else:
+                happened_on = date.today()
         except Exception:
-            error = "Data inválida."
-            happened_on = None
+            flash("Data inválida. Use o seletor de data.", "error")
+            return redirect(url_for("finance.index", ym=ym))
 
+        # Normaliza type
         if t_type not in ("IN", "OUT"):
-            error = "Tipo inválido."
+            t_type = "OUT"
 
-        if not error:
-        tx = Transaction(
-            type=t_type,
-            amount=amount,
-            category=category or "Geral",
-            note=note or None,
-            happened_on=happened_on,
-        )
+        # Salva
+        try:
+            tx = Transaction(
+                type=t_type,
+                amount=amount,
+                category=category or "Geral",
+                note=note or None,
+                happened_on=happened_on,
+            )
 
-        # compatibilidade: se existir coluna antiga "date", seta também
-        if hasattr(Transaction, "date"):
-            tx.date = happened_on
+            # Compatibilidade se o model tiver coluna antiga "date"
+            # (se não tiver, isso não faz nada)
+            if hasattr(Transaction, "date"):
+                tx.date = happened_on  # type: ignore[attr-defined]
 
-        db.session.add(tx)
-        db.session.commit()
+            db.session.add(tx)
+            db.session.commit()
+            flash("Lançamento salvo ✅", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Erro ao salvar: {e}", "error")
 
-    # lista do mês
+        return redirect(url_for("finance.index", ym=ym))
+
+    # GET: listar mês
+    start, end = _month_range(year, month)
+
     items = (
         Transaction.query
-        .filter(db.extract("year", Transaction.happened_on) == year)
-        .filter(db.extract("month", Transaction.happened_on) == month)
+        .filter(Transaction.happened_on >= start)
+        .filter(Transaction.happened_on < end)
         .order_by(Transaction.happened_on.desc(), Transaction.id.desc())
         .all()
     )
 
-    total_out = sum([float(x.amount) for x in items if x.type == "OUT"])
-    total_in = sum([float(x.amount) for x in items if x.type == "IN"])
+    # Totais simples
+    total_in = sum((t.amount for t in items if getattr(t, "type", "OUT") == "IN"), Decimal("0"))
+    total_out = sum((t.amount for t in items if getattr(t, "type", "OUT") != "IN"), Decimal("0"))
+    net = total_in - total_out
 
     return render_template(
         "finance/index.html",
-        items=items,
-        total_out=total_out,
-        total_in=total_in,
+        ym=ym,
         year=year,
         month=month,
-        error=error,
+        items=items,
+        total_in=total_in,
+        total_out=total_out,
+        net=net,
     )
-
-
-@bp.route("/delete/<int:tx_id>", methods=["POST"])
-@login_required
-def delete(tx_id: int):
-    tx = Transaction.query.get_or_404(tx_id)
-    db.session.delete(tx)
-    db.session.commit()
-    return redirect(url_for("finance.index"))
