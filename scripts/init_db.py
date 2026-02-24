@@ -64,6 +64,34 @@ def ensure_transactions_columns():
                 conn.execute(db.text(f"ALTER TABLE transactions ADD COLUMN {col} {ddl};"))
                 conn.commit()
 
+        # Compat com schema antigo: coluna "date" NOT NULL
+    # Se existir, vamos garantir que não quebra insert.
+    if _pg_has_column("transactions", "date"):
+        print("[MIGRATION] Compat: transactions.date detectada")
+
+        with db.engine.connect() as conn:
+            # 1) se tiver NULL, preenche com happened_on ou CURRENT_DATE
+            conn.execute(db.text("""
+                UPDATE transactions
+                SET date = COALESCE(happened_on, CURRENT_DATE)
+                WHERE date IS NULL;
+            """))
+
+            # 2) garante default para novos inserts
+            conn.execute(db.text("""
+                ALTER TABLE transactions
+                ALTER COLUMN date SET DEFAULT CURRENT_DATE;
+            """))
+
+            # 3) remove NOT NULL (pra não obrigar mais)
+            conn.execute(db.text("""
+                ALTER TABLE transactions
+                ALTER COLUMN date DROP NOT NULL;
+            """))
+
+            conn.commit()
+
+        print("[OK] Compat: transactions.date ajustada (default + nullable).")
     print("[OK] transactions schema conferido.")
 
 
