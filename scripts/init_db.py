@@ -44,14 +44,34 @@ def ensure_users_columns():
         print("[OK] users.is_admin já existe.")
 
 
-def ensure_transactions_columns():
+def _make_nullable_with_default(table: str, column: str, default_sql: str, fill_sql: str):
     """
-    Auto-migration para schema legado da tabela transactions.
-    Garante colunas principais e corrige colunas antigas (date/kind) que às vezes ficam NOT NULL.
+    Ajuda a 'destravar' colunas legadas NOT NULL:
+      1) preenche NULLs
+      2) seta DEFAULT
+      3) DROP NOT NULL
     """
     if db.engine.dialect.name != "postgresql":
         return
+    if not _pg_has_column(table, column):
+        return
 
+    print(f"[MIGRATION] Compat: {table}.{column} detectada -> ajustando ...")
+    with db.engine.connect() as conn:
+        if fill_sql:
+            conn.execute(db.text(fill_sql))
+        if default_sql:
+            conn.execute(db.text(default_sql))
+        conn.execute(db.text(f'ALTER TABLE {table} ALTER COLUMN "{column}" DROP NOT NULL;'))
+        conn.commit()
+    print(f"[OK] Compat: {table}.{column} agora tem DEFAULT e aceita NULL.")
+
+
+def ensure_transactions_columns():
+    if db.engine.dialect.name != "postgresql":
+        return
+
+    # Colunas do schema "novo" do projeto
     wanted = [
         ("type", "VARCHAR(3) NOT NULL DEFAULT 'OUT'"),
         ("amount", "NUMERIC(12,2) NOT NULL DEFAULT 0"),
@@ -61,59 +81,50 @@ def ensure_transactions_columns():
         ("created_at", "TIMESTAMP NOT NULL DEFAULT NOW()"),
     ]
 
-    # adiciona colunas que faltam
     for col, ddl in wanted:
         if not _pg_has_column("transactions", col):
             print(f"[MIGRATION] transactions.{col} -> adicionando ...")
             with db.engine.connect() as conn:
-                conn.execute(db.text(f"ALTER TABLE transactions ADD COLUMN {col} {ddl};"))
+                conn.execute(db.text(f'ALTER TABLE transactions ADD COLUMN "{col}" {ddl};'))
                 conn.commit()
 
-    # Compat com schema antigo: coluna "date" NOT NULL
-    if _pg_has_column("transactions", "date"):
-        print("[MIGRATION] Compat: transactions.date detectada")
-        with db.engine.connect() as conn:
-            # preenche nulos
-            conn.execute(db.text("""
-                UPDATE transactions
-                SET date = COALESCE(date, happened_on, CURRENT_DATE)
-                WHERE date IS NULL;
-            """))
-            # default para novos
-            conn.execute(db.text("""
-                ALTER TABLE transactions
-                ALTER COLUMN date SET DEFAULT CURRENT_DATE;
-            """))
-            # remove NOT NULL
-            conn.execute(db.text("""
-                ALTER TABLE transactions
-                ALTER COLUMN date DROP NOT NULL;
-            """))
-            conn.commit()
-        print("[OK] Compat: transactions.date ajustada (default + nullable).")
+    # ===== Compat com schemas antigos =====
 
-    # Compat com schema antigo: coluna "kind" NOT NULL
-    if _pg_has_column("transactions", "kind"):
-        print("[MIGRATION] Compat: transactions.kind detectada")
-        with db.engine.connect() as conn:
-            # preenche nulos (usa type se existir)
-            conn.execute(db.text("""
-                UPDATE transactions
-                SET kind = COALESCE(kind, type, 'OUT')
-                WHERE kind IS NULL;
-            """))
-            # default para novos
-            conn.execute(db.text("""
-                ALTER TABLE transactions
-                ALTER COLUMN kind SET DEFAULT 'OUT';
-            """))
-            # remove NOT NULL
-            conn.execute(db.text("""
-                ALTER TABLE transactions
-                ALTER COLUMN kind DROP NOT NULL;
-            """))
-            conn.commit()
-        print("[OK] Compat: transactions.kind ajustada (default + nullable).")
+    # date: se existir, preencher e permitir NULL
+    _make_nullable_with_default(
+        "transactions",
+        "date",
+        "ALTER TABLE transactions ALTER COLUMN date SET DEFAULT CURRENT_DATE;",
+        """
+        UPDATE transactions
+        SET date = COALESCE(date, happened_on, CURRENT_DATE)
+        WHERE date IS NULL;
+        """,
+    )
+
+    # kind: se existir, preencher com type/out e permitir NULL
+    _make_nullable_with_default(
+        "transactions",
+        "kind",
+        "ALTER TABLE transactions ALTER COLUMN kind SET DEFAULT 'OUT';",
+        """
+        UPDATE transactions
+        SET kind = COALESCE(kind, type, 'OUT')
+        WHERE kind IS NULL;
+        """,
+    )
+
+    # description: se existir, preencher com note/category e permitir NULL
+    _make_nullable_with_default(
+        "transactions",
+        "description",
+        "ALTER TABLE transactions ALTER COLUMN description SET DEFAULT '';",
+        """
+        UPDATE transactions
+        SET description = COALESCE(description, note, category, '')
+        WHERE description IS NULL;
+        """,
+    )
 
     print("[OK] transactions schema conferido.")
 
