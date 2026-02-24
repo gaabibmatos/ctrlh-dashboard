@@ -18,10 +18,13 @@ def _pg_has_column(table: str, column: str) -> bool:
     LIMIT 1;
     """
     with db.engine.connect() as conn:
-        return conn.execute(
-            db.text(check_sql),
-            {"table_name": table, "column_name": column},
-        ).fetchone() is not None
+        return (
+            conn.execute(
+                db.text(check_sql),
+                {"table_name": table, "column_name": column},
+            ).fetchone()
+            is not None
+        )
 
 
 def ensure_users_columns():
@@ -31,7 +34,11 @@ def ensure_users_columns():
     if not _pg_has_column("users", "is_admin"):
         print("[MIGRATION] users.is_admin -> adicionando ...")
         with db.engine.connect() as conn:
-            conn.execute(db.text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE;"))
+            conn.execute(
+                db.text(
+                    "ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE;"
+                )
+            )
             conn.commit()
     else:
         print("[OK] users.is_admin já existe.")
@@ -40,14 +47,11 @@ def ensure_users_columns():
 def ensure_transactions_columns():
     """
     Auto-migration para schema legado da tabela transactions.
-    Garante colunas: type, amount, category, note, happened_on, created_at
+    Garante colunas principais e corrige colunas antigas (date/kind) que às vezes ficam NOT NULL.
     """
     if db.engine.dialect.name != "postgresql":
         return
 
-    # Se a tabela nem existir ainda, create_all já resolve.
-    # Aqui a gente só ajusta quando ela existe mas está "antiga".
-    # (Caso a tabela não exista, information_schema.columns retorna vazio)
     wanted = [
         ("type", "VARCHAR(3) NOT NULL DEFAULT 'OUT'"),
         ("amount", "NUMERIC(12,2) NOT NULL DEFAULT 0"),
@@ -57,6 +61,7 @@ def ensure_transactions_columns():
         ("created_at", "TIMESTAMP NOT NULL DEFAULT NOW()"),
     ]
 
+    # adiciona colunas que faltam
     for col, ddl in wanted:
         if not _pg_has_column("transactions", col):
             print(f"[MIGRATION] transactions.{col} -> adicionando ...")
@@ -64,34 +69,52 @@ def ensure_transactions_columns():
                 conn.execute(db.text(f"ALTER TABLE transactions ADD COLUMN {col} {ddl};"))
                 conn.commit()
 
-        # Compat com schema antigo: coluna "date" NOT NULL
-    # Se existir, vamos garantir que não quebra insert.
+    # Compat com schema antigo: coluna "date" NOT NULL
     if _pg_has_column("transactions", "date"):
         print("[MIGRATION] Compat: transactions.date detectada")
-
         with db.engine.connect() as conn:
-            # 1) se tiver NULL, preenche com happened_on ou CURRENT_DATE
+            # preenche nulos
             conn.execute(db.text("""
                 UPDATE transactions
-                SET date = COALESCE(happened_on, CURRENT_DATE)
+                SET date = COALESCE(date, happened_on, CURRENT_DATE)
                 WHERE date IS NULL;
             """))
-
-            # 2) garante default para novos inserts
+            # default para novos
             conn.execute(db.text("""
                 ALTER TABLE transactions
                 ALTER COLUMN date SET DEFAULT CURRENT_DATE;
             """))
-
-            # 3) remove NOT NULL (pra não obrigar mais)
+            # remove NOT NULL
             conn.execute(db.text("""
                 ALTER TABLE transactions
                 ALTER COLUMN date DROP NOT NULL;
             """))
-
             conn.commit()
-
         print("[OK] Compat: transactions.date ajustada (default + nullable).")
+
+    # Compat com schema antigo: coluna "kind" NOT NULL
+    if _pg_has_column("transactions", "kind"):
+        print("[MIGRATION] Compat: transactions.kind detectada")
+        with db.engine.connect() as conn:
+            # preenche nulos (usa type se existir)
+            conn.execute(db.text("""
+                UPDATE transactions
+                SET kind = COALESCE(kind, type, 'OUT')
+                WHERE kind IS NULL;
+            """))
+            # default para novos
+            conn.execute(db.text("""
+                ALTER TABLE transactions
+                ALTER COLUMN kind SET DEFAULT 'OUT';
+            """))
+            # remove NOT NULL
+            conn.execute(db.text("""
+                ALTER TABLE transactions
+                ALTER COLUMN kind DROP NOT NULL;
+            """))
+            conn.commit()
+        print("[OK] Compat: transactions.kind ajustada (default + nullable).")
+
     print("[OK] transactions schema conferido.")
 
 
@@ -119,14 +142,8 @@ def ensure_admin():
 app = create_app()
 
 with app.app_context():
-    # cria tabelas novas que não existirem
     db.create_all()
-
-    # corrige schemas antigos no Postgres
     ensure_users_columns()
     ensure_transactions_columns()
-
-    # garante admin
     ensure_admin()
-
     print("DB initialized + schema fixed + admin ensured.")
