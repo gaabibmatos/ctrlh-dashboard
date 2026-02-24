@@ -47,13 +47,18 @@ def index():
             error = "Tipo inválido."
 
         if not error:
-            tx = Transaction(
-                type=t_type,
-                amount=amount,
-                category=category or "Geral",
-                note=note or None,
-                happened_on=happened_on,
-            )
+        tx = Transaction(
+            type=t_type,
+            amount=amount,
+            category=category or "Geral",
+            note=note or None,
+            happened_on=happened_on,
+        )
+
+        # compatibilidade: se existir coluna antiga "date", seta também
+            if hasattr(Transaction, "date"):
+            tx.date = happened_on
+
             db.session.add(tx)
             db.session.commit()
             return redirect(url_for("finance.index"))
